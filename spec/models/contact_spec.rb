@@ -102,4 +102,88 @@ RSpec.describe Contact do
       expect(contact.contact_type).to eq 'lead'
     end
   end
+
+  describe 'permissions and masking' do
+    let(:account) { create(:account) }
+    let(:contact) { create(:contact, account: account, phone_number: '+1234567890', name: 'John Doe') }
+    let(:admin_user) { create(:user, account: account, role: :administrator) }
+    let(:agent_user) { create(:user, account: account, role: :agent) }
+    let(:agent_with_permissions) do
+      user = create(:user, account: account, role: :agent)
+      create(:custom_role, account: account, name: 'Agent with contact permissions', custom_permissions: ['contact_manage'])
+      user.update!(custom_role: CustomRole.last)
+      user
+    end
+
+    describe '#user_can_view_contact_details?' do
+      it 'allows administrators to view contact details' do
+        expect(contact.user_can_view_contact_details?(admin_user)).to be true
+      end
+
+      it 'allows agents with contact_manage permission to view details' do
+        expect(contact.user_can_view_contact_details?(agent_with_permissions)).to be true
+      end
+
+      it 'allows agents participating in conversations to view details' do
+        conversation = create(:conversation, account: account, contact: contact)
+        create(:conversation_participant, conversation: conversation, user: agent_user)
+        expect(contact.user_can_view_contact_details?(agent_user)).to be true
+      end
+
+      it 'denies access to agents without permissions or participation' do
+        expect(contact.user_can_view_contact_details?(agent_user)).to be false
+      end
+    end
+
+    describe '#masked_name' do
+      it 'shows full name to administrators' do
+        expect(contact.masked_name(admin_user)).to eq('John Doe')
+      end
+
+      it 'shows masked name to unauthorized agents' do
+        expect(contact.masked_name(agent_user)).to eq('WA-***890')
+      end
+
+      it 'shows full name to authorized agents' do
+        expect(contact.masked_name(agent_with_permissions)).to eq('John Doe')
+      end
+    end
+
+    describe '#masked_phone_number' do
+      it 'shows full number to administrators' do
+        expect(contact.masked_phone_number(admin_user)).to eq('+1234567890')
+      end
+
+      it 'shows masked number to unauthorized agents' do
+        expect(contact.masked_phone_number(agent_user)).to eq('+*******890')
+      end
+
+      it 'shows full number to authorized agents' do
+        expect(contact.masked_phone_number(agent_with_permissions)).to eq('+1234567890')
+      end
+    end
+
+    describe '#display_identifier' do
+      before do
+        allow(contact).to receive(:from_whatsapp_channel?).and_return(true)
+      end
+
+      it 'shows regular identifier to administrators' do
+        expect(contact.display_identifier(admin_user)).to eq('WA-567890')
+      end
+
+      it 'shows masked identifier to unauthorized agents' do
+        expect(contact.display_identifier(agent_user)).to eq('WA-***890')
+      end
+
+      it 'shows regular identifier to authorized agents' do
+        expect(contact.display_identifier(agent_with_permissions)).to eq('WA-567890')
+      end
+
+      it 'returns name for non-whatsapp channels' do
+        allow(contact).to receive(:from_whatsapp_channel?).and_return(false)
+        expect(contact.display_identifier(agent_user)).to eq('John Doe')
+      end
+    end
+  end
 end

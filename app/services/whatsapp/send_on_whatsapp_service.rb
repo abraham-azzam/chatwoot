@@ -19,13 +19,21 @@ class Whatsapp::SendOnWhatsappService < Base::SendOnChannelService
 
     return if name.blank?
 
-    message_id = channel.send_template(message.conversation.contact_inbox.source_id, {
+    # Format the phone number before sending
+    formatted_number = format_phone_number(message.conversation.contact_inbox.source_id)
+
+    message_id = channel.send_template(formatted_number, {
                                          name: name,
                                          namespace: namespace,
                                          lang_code: lang_code,
                                          parameters: processed_parameters
                                        })
     message.update!(source_id: message_id) if message_id.present?
+  end
+
+  def format_phone_number(number)
+    # Remove any non-digit characters except +
+    number.gsub(/[^\d+]/, '')
   end
 
   def processable_channel_message_template
