@@ -271,11 +271,8 @@ class Contact < ApplicationRecord
 
   def user_can_view_contact_details?(user)
     return true if user.administrator?
-    return true if user.role == 'agent' && user.custom_role_id.nil?
-
-    # Check if user has contact_manage permission in their custom role
-    permissions = user.account_users.find_by(account_id: account_id)&.permissions || []
-    permissions.include?('contact_manage')
+    return false unless conversation_participants.includes(:user).exists?(user: user)
+    true
   end
 
   def from_whatsapp_channel?

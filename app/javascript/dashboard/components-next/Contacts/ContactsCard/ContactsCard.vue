@@ -86,6 +86,12 @@ const onClickExpand = () => {
 };
 
 const onClickViewDetails = () => emit('showContact', props.id);
+
+const formatPhoneNumber = (number) => {
+  if (!number) return '';
+  // Format: +XX XXX XXX XXXX
+  return number.replace(/(\d{2})(\d{3})(\d{3})(\d{4})/, '+$1 $2 $3 $4');
+};
 </script>
 
 <template>
@@ -117,8 +123,9 @@ const onClickViewDetails = () => emit('showContact', props.id);
             </span>
           </div>
           <div v-if="email" class="w-px h-3 truncate bg-n-slate-6" />
-          <span v-if="phoneNumber" class="text-sm truncate text-n-slate-11">
-            {{ phoneNumber }}
+          <span v-if="phoneNumber" class="text-sm truncate text-n-slate-11 flex items-center gap-1">
+            <i class="i-ph-phone text-n-slate-10 size-4" />
+            {{ formatPhoneNumber(phoneNumber) }}
           </span>
           <div v-if="phoneNumber" class="w-px h-3 truncate bg-n-slate-6" />
           <span
