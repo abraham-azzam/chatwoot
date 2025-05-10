@@ -83,3 +83,21 @@ export const convertToPortalSlug = text => {
     .replace(/[^\w ]+/g, '')
     .replace(/ +/g, '-');
 };
+
+export const getContactName = ({ contact, conversationContactInbox }) => {
+  if (!contact) {
+    return '';
+  }
+
+  const { name, phone_number: phoneNumber, display_identifier: displayIdentifier } = contact;
+
+  if (displayIdentifier) {
+    return displayIdentifier;
+  }
+
+  if (phoneNumber && !name) {
+    return phoneNumber;
+  }
+
+  return name;
+};

@@ -188,6 +188,36 @@ class Contact < ApplicationRecord
     find_by(email: email&.downcase)
   end
 
+  def masked_name(user)
+    return name if user_can_view_contact_details?(user)
+
+    if phone_number.present?
+      mask_service = Whatsapp::ContactMaskService.new(phone_number)
+      mask_service.generate_identifier
+    else
+      'Anonymous Contact'
+    end
+  end
+
+  def masked_phone_number(user)
+    return phone_number if user_can_view_contact_details?(user)
+
+    mask_service = MaskPhoneNumberService.new(phone_number)
+    mask_service.masked_number
+  end
+
+  def display_identifier(user)
+    return name unless from_whatsapp_channel?
+
+    return whatsapp_identifier if user_can_view_contact_details?(user)
+
+    whatsapp_identifier
+  end
+
+  def whatsapp_identifier
+    @whatsapp_identifier ||= WhatsappIdentifierService.new(phone_number).generate
+  end
+
   private
 
   def ip_lookup
@@ -237,5 +267,18 @@ class Contact < ApplicationRecord
 
   def dispatch_destroy_event
     Rails.configuration.dispatcher.dispatch(CONTACT_DELETED, Time.zone.now, contact: self)
+  end
+
+  def user_can_view_contact_details?(user)
+    return true if user.administrator?
+    return true if user.role == 'agent' && user.custom_role_id.nil?
+
+    # Check if user has contact_manage permission in their custom role
+    permissions = user.account_users.find_by(account_id: account_id)&.permissions || []
+    permissions.include?('contact_manage')
+  end
+
+  def from_whatsapp_channel?
+    contact_inboxes.joins(:inbox).where(inboxes: { channel_type: 'Channel::Whatsapp' }).exists?
   end
 end
